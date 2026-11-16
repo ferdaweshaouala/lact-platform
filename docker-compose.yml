@@ -1,0 +1,167 @@
+networks:
+  dtms_net:
+    driver: bridge
+    driver_opts:
+      # MTU 1450 prevents packet fragmentation on Tunisian ISP lines (Topnet/Orange)
+      # Default 1500 causes silent hangs through WSL2 vEthernet
+      com.docker.network.driver.mtu: "1450"
+
+services:
+  db:
+    image: postgres:15
+    container_name: dtms_db
+    # on-failure:5 prevents infinite restart death spirals that trigger OOM
+    restart: on-failure:5
+    environment:
+      POSTGRES_USER: dtms_user
+      POSTGRES_PASSWORD: dtms_pass
+      POSTGRES_DB: dtms_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dtms_net
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dtms_user -d dtms_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    shm_size: 64m
+    stop_grace_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Tune Postgres for a 256MB container — prevents it from claiming more than its limit
+    command: >
+      postgres
+      -c max_connections=30
+      -c shared_buffers=64MB
+      -c effective_cache_size=128MB
+      -c maintenance_work_mem=32MB
+      -c work_mem=4MB
+      -c wal_buffers=8MB
+      -c checkpoint_completion_target=0.9
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dtms_pgadmin
+    restart: on-failure:3
+    profiles:
+      - tools
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@dtms.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: "40"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      # Persists server config across hard resets
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - dtms_net
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.3"
+    stop_grace_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  backend:
+    build: ./backend
+    container_name: dtms_backend
+    restart: on-failure:5
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    networks:
+      - dtms_net
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    deploy:
+      resources:
+        limits:
+          # 256MB was the OOM trigger — Python + FastAPI + SQLAlchemy needs headroom
+          memory: 512M
+          cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    container_name: dtms_frontend
+    restart: on-failure:3
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes: []
+    networks:
+      - dtms_net
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      BACKEND_URL: http://backend:8000
+      # Cap V8 heap well below the container limit so Node OOMs cleanly
+      # instead of triggering Linux OOM-killer (Exit 137)
+      NODE_OPTIONS: "--max-old-space-size=384"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.75"
+    stop_grace_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+  pgadmin_data:

@@ -1,0 +1,50 @@
+# Environment — NEVER commit real credentials
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+frontend/.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database files — never commit real data
+*.db
+*.sqlite
+*.sqlite3
+
+# ML outputs — generated artifacts, not source code
+backend/app/ml/outputs/
+backend/app/ml/synthetic_data.csv
+
+# Claude Code — local session data, worktrees, personal settings
+.claude/
+
+# Logs
+*.log
+logs/
+
+# Docker volumes / local overrides
+docker-compose.override.yml
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml

@@ -1,0 +1,30 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9
+alembic==1.13.1
+pydantic[email]==2.7.1
+pydantic-settings==2.2.1
+PyJWT==2.8.0
+bcrypt==4.0.1
+python-multipart==0.0.9
+pandas==2.2.2
+openpyxl==3.1.2
+apscheduler==3.10.4
+slowapi==0.1.9
+structlog==24.1.0
+Pillow==10.3.0
+pytest==8.2.0
+httpx==0.27.0
+pymupdf==1.24.5
+# ML dependencies — commented out temporarily for fast Docker build (restore on fast WiFi)
+# scikit-learn==1.4.2
+# xgboost==2.0.3
+# lightgbm==4.3.0
+# shap==0.45.0
+# imbalanced-learn==0.12.2
+# numpy==1.26.4
+# matplotlib==3.8.4
+# seaborn==0.13.2
+# joblib==1.4.0
+python-dotenv==1.0.1
